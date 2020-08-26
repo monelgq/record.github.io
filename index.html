@@ -1,17 +1,283 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width">
-    <title>Web Audio Recording Demonstration</title>
-    <link href="style.css" rel="stylesheet" type="text/css" />
-  </head>
-  <body>
-    <button id="recorder-button">
-      <div id="recorder-button-div"></div>
-    </button>
-    <audio id="audio"></audio>
-    <script src="webrecord/WebAudioRecorder.js"></script>
-    <script src="app.js"></script>
-  </body>
+<html>
+<head>
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta charset="utf-8">
+<meta content="initial-scale=1, minimum-scale=1, width=device-width" name="viewport">
+		
+<title>在线录音</title>
+
+<meta name="keywords" content="">
+<meta name="description" content="">
+<!-- <link rel="shortcut icon" href="">  加载网址16px*16px图标文件 -->
+
+<!-- css loading -->
+<link rel="stylesheet" href="uikit2/css/uikit.min.css">
+<!--<link rel="stylesheet" href="http://cdn.bootcss.com/font-awesome/4.3.0/css/font-awesome.min.css">-->
+<link rel="stylesheet" href="http://163.44.172.227/css/theme-global.css">
+
+<!-- js loading -->
+<!--<script src="http://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"> </script>-->
+<!--<script src="http://cdn.bootcss.com/uikit/2.27.2/js/uikit.min.js"> </script>-->
+
+<!-- css in page -->
+<style type="text/css">
+
+.layout-box {
+	max-width: 640px;
+	text-align: center;
+	margin-top: 50px;
+	margin-bottom: 100px;
+}
+
+.home-title {
+	font-family: "Microsoft YaHei", Arial, Helvetica, sans-serif;
+	font-weight: bold;
+	font-size: 30px;
+	text-align: center;
+	margin-bottom: 50px;
+}
+
+.home-audio {
+    display: inline-block;
+    vertical-align: baseline;
+    height: 54px;
+    margin-bottom: 30px;
+}
+
+.btn-box {
+	width: 100%;
+	height: auto;
+	margin: auto;
+	position: fixed;
+	bottom: 50px;
+	left: 0;	
+}
+
+.btn-upload-box {
+	width: 200px;
+	height: auto;
+	position: fixed;
+	bottom: 50px;
+	left: 50%;	
+	padding: 0;
+	z-index:100;	
+	margin-left: 40px;
+}
+
+.record, .upbtn {
+    width: 60px;
+    height: 60px;
+    margin: auto;
+}
+
+.bcircle {
+	background: #ff0000;
+	position: relative;
+}
+
+.gray-circle {
+	background: #ded1d1;
+	position: relative;
+	margin-left: -40px;
+}
+
+.scircle {
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: white;
+    position: absolute;
+    left: 18px;
+    top: 18px;
+}
+
+.stop {
+	border-radius: 0;
+}
+
+.upload {
+	padding-top: 5px;
+	color: blue;
+}
+
+
+</style> <!-- css end  in page -->
+
+</head>
+<body>
+
+<!-- page content -->
+<div class="box layout-box">
+
+<div class="home-title">在线录音</div>
+
+<!-- 默认隐藏的音频播放控件 -->
+<div class="hide-div" id="audiobox">
+  <audio controls="controls" preload="auto" class="home-audio" id="audio">	
+	<source src="" type="audio/mpeg" />
+	<!--<source src="http://lcfy.5i8930.com/html/file/home.mp3" type="audio/mpeg" />-->
+	<!--<source src="/html/file/home.m4a" type="audio/x-m4a" />-->
+  </audio>	
+</div>
+
+<!-- 录制进行当中才显示的音频波形动图  -->
+<div class="gif-box hide-div" id="audiowave">
+	<div class="gif1"><img src="image/audiowave-ok.gif"/></div>
+	<!--<div class="gif2"><img src="image/audiowave-ok.gif"/></div>-->
+</div>
+
+<!-- 固定在屏幕底部的录制，停止按钮组 -->
+<div class="btn-box">
+	<div class=btn-css>
+		<!-- 录制和停止按钮切换 -->
+		<div class="record" id="switch">
+			<div class="circle bcircle">
+				<div class="scircle"></div>
+			</div>
+		</div>	
+	</div>	
+</div>
+
+<!--录制停止后显示的上传按钮-->
+<div class="btn-upload-box hide-div" id="upload-btn">
+	<div class="upbtn">
+		<div class="circle gray-circle">
+			<div class="upload">
+				<i class="uk-icon-cloud-upload uk-icon-medium upload-icon"></i>
+				<div class="upload-text">上传</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+</div> <!-- end page content --> 
+
+<!-- bottom js loading -->
+<script src="http://cdn.bootcss.com/jquery/2.2.4/jquery.min.js"></script>
+<script src="webrecord/WebAudioRecorder.js"></script>
+<!-- js in page -->
+<script>
+
+// using js/jquery in drupal 8
+(function($) {
+	'use strict';
+	// var recordStatus = 0;
+			
+$(document).ready(function() {	
+	
+let recorderButton = document.getElementById('switch'); // 录音和停止录音切换按钮
+// let recorderButtonDiv = document.getElementById('recorder-button-div'); // the styled div that looks like a record button 
+let audioElement = document.getElementById('audio'); // the audio element that we will feed our recording to
+
+let webAudioRecorder; // our WebAudioRecorder.js recorder yet to be instantiated
+let currentlyRecording = false; // a boolean to keep track of whether recording is taking place
+let getUserMediaStream; // our stream from getUserMedia
+
+// 录音和停止录音 点击事件
+recorderButton.addEventListener('click', () => {
+  // the options object determining what media type(s) to capture
+  let options = { 'audio': true, 'video': false };
+  // only start the recording stream if there is not another recording in progress
+  if (currentlyRecording === false) {
+    // the built-in method for capturing audio/video from the user's device
+    // pass in the media capture options object and ask for permission to access the microphone
+    navigator.mediaDevices.getUserMedia(options)
+    .then(stream => {
+
+      currentlyRecording = true;
+      // if this is a subsequent recording, hide the HTML audio element
+      audioElement.controls = false;
+      
+      // 按钮图标切换
+      $(".scircle").toggleClass("stop");
+      console.log(currentlyRecording);
+
+	$("#audiowave").removeClass("hide-div");
+	$("#audiobox").addClass("hide-div");		
+	$("#upload-btn").addClass("hide-div");				
+	// recordStatus = 1;
+	console.log('click record button');
+      
+      // 音频流赋值 
+      getUserMediaStream = stream;
+      // the AudioContext that will handle our audio stream
+      // if you're in Safari or an older Chrome, you can't use the regular audio context so provide this line to use webkitAudioContext
+      let AudioContext = window.AudioContext ||  window.webkitAudioContext;
+      let audioContext = new AudioContext();
+      
+      // 音频原始数据 an audio node that we can feed to a new WebAudioRecorder so we can record/encode the audio data
+      let source = audioContext.createMediaStreamSource(stream);
+      // 实例化录音对象 the creation of the recorder with its settings:
+      webAudioRecorder = new WebAudioRecorder(source, {
+        // workerDir: the directory where the WebAudioRecorder.js file lives
+        workerDir: 'webrecord/',
+        // encoding: type of encoding for our recording ('mp3', 'ogg', or 'wav')
+        encoding: 'mp3',
+        options: {
+          // encodeAfterRecord: our recording won't be usable unless we set this to true
+          encodeAfterRecord: true,
+          // mp3: bitRate: '160 is default, 320 is max quality'
+          mp3: { bitRate: '128' }
+        }
+      });
+      
+      // the method that fires when the recording finishes (triggered by webAudioRecorder.finishRecording() below)
+      // the blob is the encoded audio file
+      // webAudioRecorder.finishRecording() 录音完成后 触发的回调函数
+      webAudioRecorder.onComplete = (webAudioRecorder, blob) => {
+        // 音频临时URL create a temporary URL that we can use as the src attribute for our audio element (audioElement)
+        let audioElementSource = window.URL.createObjectURL(blob);
+        // set this URL as the src attribute of our audio element
+        audioElement.src = audioElementSource;
+        // add controls so we can see the audio element on the page
+        audioElement.controls = true;        
+        // 页面ui切换相关 
+        
+      }
+      // handles and logs any errors that occur during the encoding/recording process
+      webAudioRecorder.onError = (webAudioRecorder, err) => {
+          console.error(err);
+      }
+      // method that initializes the recording
+      webAudioRecorder.startRecording();
+    })
+    // catch and log any errors in getUserMedia's promise
+    .catch(err => {
+        console.error(err);
+    });
+  }
+  else {
+    // set this to the array of audio tracks in our getUserMedia stream. In this case we only have one.
+    let audioTrack = getUserMediaStream.getAudioTracks()[0];
+    // stop that track and end the stream
+    // this is not absolutely necessary, but it stops the browser streaming audio inbetween recordings so you should probably do it
+    audioTrack.stop();
+    // this finishes things up and calls webAudioRecorder.onComplete
+    webAudioRecorder.finishRecording();
+    currentlyRecording = false;
+    
+    // 页面ui切换相关 
+	$(".scircle").toggleClass("stop");
+	console.log(currentlyRecording);
+	
+	$("#audiowave").addClass("hide-div");
+	$("#audiobox").removeClass("hide-div");		
+	$("#upload-btn").removeClass("hide-div");				
+	// recordStatus = 0;
+	console.log('click stop record button');	
+	// console.log(recordStatus);	
+    
+  }
+}); // 对应录音/停止录音按钮单击事件函数
+		 
+
+});  // 对应 文档加载
+	
+})(jQuery);	
+
+</script> <!-- js end in page -->
+
+</body>
 </html>
